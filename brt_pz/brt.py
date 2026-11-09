@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from typing import Any, ClassVar
-from urllib.parse import urljoin
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -12,8 +11,8 @@ from urllib3.util import Retry
 class BrtPZ:
     """Python client library for BRT (Bartolini) REST APIs."""
 
-    _PROD_BASE_URL: str = "https://api.brt.it/rest/v1"
-    _TEST_BASE_URL: str = "https://api-test.brt.it/rest/v1"
+    _PROD_BASE_URL: ClassVar[str] = "https://api.brt.it/rest/v1"
+    _TEST_BASE_URL: ClassVar[str] = "https://api-test.brt.it/rest/v1"
 
     def __init__(
         self,
@@ -96,7 +95,7 @@ class BrtPZ:
         error_context: str = "an operation on BRT API",
     ) -> requests.Response | None:
         """Internal helper to execute HTTP requests with standardized headers and error reporting."""
-        url = endpoint if endpoint.startswith("http") else f"{self._base_url}{endpoint}"
+        url = endpoint if endpoint.startswith("http") else f"{self._base_url}/{endpoint.lstrip('/')}"
         valid_statuses = (expected_status,) if isinstance(expected_status, int) else expected_status
 
         try:

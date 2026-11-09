@@ -1,7 +1,10 @@
 import logging
-from typing import Any
+from typing import Any, ClassVar
 
 class BrtPZ:
+    _PROD_BASE_URL: ClassVar[str]
+    _TEST_BASE_URL: ClassVar[str]
+
     def __init__(
         self,
         user_id: str,
