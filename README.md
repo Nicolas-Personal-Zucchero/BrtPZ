@@ -27,7 +27,7 @@
 ## Installation
 
 ```bash
-git clone https://github.com/personalzucchero/BrtPZ.git
+git clone https://github.com/Nicolas-Personal-Zucchero/BrtPZ.git
 cd BrtPZ
 pip install -e .
 ```
