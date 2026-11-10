@@ -1,7 +1,7 @@
 """Manual development playground for BrtPZ.
 
 This script is not part of the distributed package and can be used
-to test API calls interactively during development.
+to test BRT API calls interactively during development.
 
 Setup:
 1. Create a '.env' file by copying 'template.env':
@@ -48,12 +48,14 @@ def main() -> None:
     load_env_file()
 
     user_id = os.getenv("BRT_USER_ID")
-    security_token = os.getenv("BRT_SECURITY_TOKEN")
-    customer_code = os.getenv("BRT_CUSTOMER_CODE")
-    departure_depot = os.getenv("BRT_DEPARTURE_DEPOT")
+    password = os.getenv("BRT_PASSWORD")
+    raw_customer_code = os.getenv("BRT_CUSTOMER_CODE")
+    customer_code = int(raw_customer_code) if raw_customer_code else None
+    raw_departure_depot = os.getenv("BRT_DEPARTURE_DEPOT")
+    departure_depot = int(raw_departure_depot) if raw_departure_depot else None
     sandbox = os.getenv("BRT_SANDBOX", "true").lower() in ("true", "1", "yes")
 
-    if not user_id or user_id == "your_user_id_here":
+    if not user_id or user_id == "your_user_id_here" or not password:
         print("[!] BRT credentials not configured!")
         print("    Copy 'template.env' to '.env' and set your credentials before running.")
         return
@@ -63,78 +65,65 @@ def main() -> None:
 
     client = BrtPZ(
         user_id=user_id,
-        security_token=security_token,
+        password=password,
         customer_code=customer_code,
         departure_depot=departure_depot,
         sandbox=sandbox,
         logger=logger,
     )
-    print(f"[+] BrtPZ initialized successfully (Sandbox: {sandbox}).")
+    print(f"[+] BrtPZ initialized successfully (Sandbox: {sandbox}, Base URL: {client.base_url}).")
 
     # =============================================================
-    # MANUAL TESTS: UNCOMMENT THE SECTION YOU WISH TO RUN
+    # 1. CREATE SHIPMENT (TEST CONSIGNMENT)
     # =============================================================
-
-    # -------------------------------------------------------------
-    # 1. ROUTING & DEPOT CHECK
-    # -------------------------------------------------------------
-    # print("\n--- Testing Routing (40121 Bologna) ---")
-    # routing_info = client.get_routing(zip_code="40121", country_code="IT", city="Bologna")
-    # pretty_print("Routing Info", routing_info)
-
-    # -------------------------------------------------------------
-    # 2. BRT-FERMOPOINT / PUDO SEARCH
-    # -------------------------------------------------------------
-    # print("\n--- Testing PUDO Search (40121 Bologna) ---")
-    # pudo_points = client.search_pudo(zip_code="40121", country_code="IT", max_results=5)
-    # pretty_print("PUDO Locations", pudo_points)
-
-    # -------------------------------------------------------------
-    # 3. TRACKING BY PARCEL ID
-    # -------------------------------------------------------------
-    # print("\n--- Testing Tracking by Parcel ID ---")
-    # TEST_PARCEL_ID = "000000000000"
-    # tracking_data = client.get_tracking_by_parcel_id(TEST_PARCEL_ID)
-    # pretty_print("Parcel Tracking", tracking_data)
-
-    # -------------------------------------------------------------
-    # 4. TRACKING BY SHIPMENT ID
-    # -------------------------------------------------------------
-    # print("\n--- Testing Tracking by Shipment ID ---")
-    # TEST_SHIPMENT_ID = "00000000"
-    # shipment_tracking = client.get_tracking_by_shipment_id(TEST_SHIPMENT_ID)
-    # pretty_print("Shipment Tracking", shipment_tracking)
-
-    # -------------------------------------------------------------
-    # 5. CREATE SHIPMENT (TEST CONSIGNMENT)
-    # -------------------------------------------------------------
     # print("\n--- Testing Shipment Creation ---")
-    # test_payload = {
-    #     "recipient": {
-    #         "name": "Mario Rossi",
-    #         "address": "Via Indipendenza 1",
-    #         "zipCode": "40121",
-    #         "city": "Bologna",
-    #         "countryCode": "IT",
-    #         "contactPhone": "3331234567"
-    #     },
-    #     "parcels": [
-    #         {"weightKg": 1.5, "lengthCm": 20, "widthCm": 15, "heightCm": 10}
-    #     ],
-    #     "customerReference": "ORDER-2026-TEST-01"
+    # test_payload: CreateData = {
+    #     "departureDepot": int(departure_depot or 102),
+    #     "senderCustomerCode": int(customer_code or 1020100),
+    #     "deliveryFreightTypeCode": "DAP",
+    #     "consigneeCompanyName": "Spedizione di prova BrtRestApi",
+    #     "consigneeAddress": "Via Enrico Mattei 54",
+    #     "consigneeZIPCode": "40138",
+    #     "consigneeCity": "BOLOGNA",
+    #     "consigneeProvinceAbbreviation": "BO",
+    #     "consigneeCountryAbbreviationISOAlpha2": "IT",
+    #     "consigneeContactName": "MARIO ROSSI",
+    #     "consigneeTelephone": "051456778",
+    #     "consigneeEMail": "test@example.com",
+    #     "consigneeMobilePhoneNumber": "3351234567",
+    #     "isAlertRequired": "0",
+    #     "pricingConditionCode": "002",
+    #     "numberOfParcels": 1,
+    #     "weightKG": 1.5,
+    #     "volumeM3": 0.01,
+    #     "numericSenderReference": 99001,
+    #     "alphanumericSenderReference": "TEST-REF-01",
     # }
-    # created_shipment = client.create_shipment(test_payload)
+    # created_shipment = client.create_shipment(
+    #     test_payload,
+    #     is_label_required=True,
+    #     label_parameters={
+    #         "outputType": "PDF",
+    #         "offsetX": 0,
+    #         "offsetY": 0,
+    #         "isBorderRequired": "0",
+    #         "isLogoRequired": "0",
+    #         "isBarcodeControlRowRequired": "0",
+    #     },
+    # )
     # pretty_print("Created Shipment", created_shipment)
 
-    # -------------------------------------------------------------
-    # 6. DOWNLOAD LABEL (PDF)
-    # -------------------------------------------------------------
-    # print("\n--- Testing Label Retrieval ---")
-    # label_pdf = client.get_label(shipment_id="TEST_ID", label_format="PDF")
-    # if label_pdf:
-    #     output_path = Path("test_label.pdf")
-    #     output_path.write_bytes(label_pdf)
-    #     print(f"[+] Label written to {output_path}")
+    # =============================================================
+    # 2. DELETE SHIPMENT
+    # =============================================================
+    # Note: BRT requires waiting at least 5 minutes after creation
+    # before attempting deletion.
+    # print("\n--- Testing Shipment Deletion ---")
+    # delete_result = client.delete_shipment(
+    #     numeric_sender_reference=99001,
+    #     alphanumeric_sender_reference="TEST-REF-01",
+    # )
+    # pretty_print("Delete Result", delete_result)
 
 
 if __name__ == "__main__":

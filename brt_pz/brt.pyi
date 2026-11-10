@@ -1,5 +1,19 @@
 import logging
-from typing import Any, ClassVar
+from pathlib import Path
+from typing import Any, ClassVar, Self
+
+from .schemas import (
+    ActualSender,
+    ConfirmResult,
+    CreateData,
+    CreateResult,
+    DeleteResult,
+    Label,
+    LabelParameters,
+    ReturnShipmentConsignee,
+    RoutingData,
+    RoutingResult,
+)
 
 class BrtPZ:
     _PROD_BASE_URL: ClassVar[str]
@@ -8,86 +22,78 @@ class BrtPZ:
     def __init__(
         self,
         user_id: str,
-        security_token: str,
-        customer_code: str | None = ...,
-        departure_depot: str | None = ...,
+        password: str,
+        customer_code: int | None = ...,
+        departure_depot: int | None = ...,
         sandbox: bool = ...,
         base_url: str | None = ...,
         logger: logging.Logger | None = ...,
     ) -> None:
-        """Initialize the BRT API client."""
+        """Initialize the BRT API Shipment client."""
+
+    @property
+    def user_id(self) -> str: ...
+    @property
+    def customer_code(self) -> int | None: ...
+    @property
+    def departure_depot(self) -> int | None: ...
+    @property
+    def sandbox(self) -> bool: ...
+    @property
+    def base_url(self) -> str: ...
 
     def close(self) -> None:
         """Close the underlying requests Session and release connection pool resources."""
 
-    def __enter__(self) -> BrtPZ: ...
+    def __enter__(self) -> Self: ...
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None: ...
 
-    # 1. Tracking
-    def get_tracking_by_parcel_id(self, parcel_id: str) -> dict[str, Any] | None:
-        """Retrieve tracking details by parcel ID."""
-
-    def get_tracking_by_shipment_id(
+    def create_shipment(
         self,
-        shipment_id: str,
-        departure_depot: str | None = ...,
-    ) -> dict[str, Any] | None:
-        """Retrieve tracking details by BRT shipment ID."""
-
-    def get_tracking_by_reference(
-        self,
-        reference: str,
-        customer_code: str | None = ...,
-        year: int | None = ...,
-    ) -> dict[str, Any] | None:
-        """Retrieve tracking details by customer reference."""
-
-    # 2. Routing
-    def get_routing(
-        self,
-        zip_code: str,
-        country_code: str = ...,
-        city: str | None = ...,
-    ) -> dict[str, Any] | None:
-        """Retrieve delivery routing info and serving depot."""
-
-    # 3. PUDO
-    def search_pudo(
-        self,
-        zip_code: str,
-        country_code: str = ...,
-        city: str | None = ...,
-        address: str | None = ...,
-        max_results: int = ...,
-    ) -> list[dict[str, Any]] | None:
-        """Search nearby BRT-fermopoint / PUDO locations."""
-
-    def get_pudo_details(self, pudo_id: str) -> dict[str, Any] | None:
-        """Retrieve detailed information and business hours for a specific BRT-fermopoint."""
-
-    # 4. Shipments
-    def create_shipment(self, shipment_data: dict[str, Any]) -> dict[str, Any] | None:
+        shipment_data: CreateData,
+        *,
+        is_label_required: str = ...,
+        label_parameters: LabelParameters | None = ...,
+        actual_sender: ActualSender | None = ...,
+        return_shipment_consignee: ReturnShipmentConsignee | None = ...,
+    ) -> CreateResult | None:
         """Create a new consignment / shipment in BRT."""
 
     def delete_shipment(
         self,
-        shipment_id: str,
-        departure_depot: str | None = ...,
-    ) -> bool:
+        numeric_sender_reference: int,
+        alphanumeric_sender_reference: str = ...,
+        *,
+        sender_customer_code: int | None = ...,
+    ) -> DeleteResult | None:
         """Cancel an uncollected BRT shipment."""
 
-    def confirm_shipments(
+    def confirm_shipment(
         self,
-        shipment_ids: list[str],
-        departure_depot: str | None = ...,
-    ) -> dict[str, Any] | None:
-        """Confirm / close a daily manifest of shipments."""
+        numeric_sender_reference: int,
+        alphanumeric_sender_reference: str = ...,
+        *,
+        cmr_code: str | None = ...,
+        sender_customer_code: int | None = ...,
+    ) -> ConfirmResult | None:
+        """Confirm an unconfirmed shipment (for explicit confirmation clients)."""
 
-    # 5. Labels
-    def get_label(
+    def get_routing(
         self,
-        shipment_id: str,
-        label_format: str = ...,
-        departure_depot: str | None = ...,
-    ) -> bytes | None:
-        """Download a shipment label in the requested format (PDF or ZPL)."""
+        routing_data: RoutingData,
+    ) -> RoutingResult | None:
+        """Calculate BRT routing coordinates (terminal, depot, delivery zone)."""
+
+    @staticmethod
+    def get_label_bytes(label: Label | str, *, digital: bool = ...) -> bytes:
+        """Decode Base64 label stream to raw bytes."""
+
+    @classmethod
+    def save_label(
+        cls,
+        label: Label | str,
+        output_path: str | Path,
+        *,
+        digital: bool = ...,
+    ) -> Path:
+        """Decode and save a parcel label to a local file."""
