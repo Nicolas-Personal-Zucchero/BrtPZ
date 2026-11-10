@@ -14,7 +14,6 @@ from .schemas import (
     ActualSender,
     CreateData,
     CreateResult,
-    DeleteData,
     DeleteResult,
     Label,
     LabelParameters,
