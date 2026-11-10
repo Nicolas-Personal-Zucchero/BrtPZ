@@ -24,7 +24,7 @@ from .schemas import (
 class BrtPZ:
     """Python client library for BRT (Bartolini) REST API Shipments (v1)."""
 
-    _PROD_BASE_URL: ClassVar[str] = "https://api.brt.it/rest/v1/shipments"
+    _BASE_URL: ClassVar[str] = "https://api.brt.it/rest/v1"
 
     def __init__(
         self,
@@ -32,7 +32,6 @@ class BrtPZ:
         password: str,
         customer_code: int | None = None,
         departure_depot: int | None = None,
-        base_url: str | None = None,
         logger: logging.Logger | None = None,
     ) -> None:
         """Initialize the BRT API Shipment client.
@@ -41,7 +40,6 @@ class BrtPZ:
         :param password: BRT API Password.
         :param customer_code: Default sender customer code (codice cliente mittente).
         :param departure_depot: Default departure depot (filiale di partenza, 3 digits).
-        :param base_url: Explicit base URL override (defaults to 'https://api.brt.it/rest/v1/shipments').
         :param logger: Optional logger instance for recording API warnings and errors.
         """
         if not user_id:
@@ -63,14 +61,6 @@ class BrtPZ:
         if departure_depot is not None and not isinstance(departure_depot, int):
             raise TypeError(f"'departure_depot' must be an int, got {type(departure_depot).__name__}.")
         self._departure_depot: int | None = departure_depot
-
-        if base_url:
-            url = base_url.rstrip("/")
-            if not url.endswith("/shipments"):
-                url = f"{url}/shipments"
-            self._base_url = url
-        else:
-            self._base_url = self._PROD_BASE_URL
 
         self._logger: logging.Logger = logger if logger is not None else logging.getLogger("brt_pz")
         self._session: requests.Session = requests.Session()
@@ -95,7 +85,7 @@ class BrtPZ:
     @property
     def base_url(self) -> str:
         """Return the active base URL."""
-        return self._base_url
+        return self._BASE_URL
 
     def _setup_session_retries(self) -> None:
         """Configure automatic retry behavior with exponential backoff for transient HTTP errors."""
@@ -151,7 +141,7 @@ class BrtPZ:
         error_context: str = "an operation on BRT API",
     ) -> requests.Response | None:
         """Internal helper to execute HTTP requests with standardized headers and error logging."""
-        url = endpoint if endpoint.startswith("http") else f"{self._PROD_BASE_URL}/{endpoint.lstrip('/')}"
+        url = endpoint if endpoint.startswith("http") else f"{self._BASE_URL}/{endpoint.lstrip('/')}"
         valid_statuses = (expected_status,) if isinstance(expected_status, int) else expected_status
 
         try:
@@ -266,7 +256,7 @@ class BrtPZ:
         if return_shipment_consignee is not None and "returnShipmentConsignee" not in payload:
             payload["returnShipmentConsignee"] = return_shipment_consignee
 
-        endpoint = "/shipment"
+        endpoint = "/shipments/shipment"
         response = self._request(
             method="POST",
             endpoint=endpoint,
@@ -340,7 +330,7 @@ class BrtPZ:
             },
         }
 
-        endpoint = "/delete"
+        endpoint = "/shipments/delete"
         response = self._request(
             method="PUT",
             endpoint=endpoint,

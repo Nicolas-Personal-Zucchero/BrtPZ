@@ -55,7 +55,6 @@ def main() -> None:
     customer_code = int(raw_customer_code) if raw_customer_code else None
     raw_departure_depot = os.getenv("BRT_DEPARTURE_DEPOT")
     departure_depot = int(raw_departure_depot) if raw_departure_depot else None
-    base_url = os.getenv("BRT_BASE_URL")
 
     if not user_id or user_id == "your_user_id_here" or not password:
         print("[!] BRT credentials not configured!")
@@ -70,7 +69,6 @@ def main() -> None:
         password=password,
         customer_code=customer_code,
         departure_depot=departure_depot,
-        base_url=base_url,
         logger=logger,
     )
     print(f"[+] BrtPZ initialized successfully. Target URL: {client.base_url}")

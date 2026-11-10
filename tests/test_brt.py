@@ -20,7 +20,7 @@ class TestBrtPZ(unittest.TestCase):
         client = BrtPZ(user_id="user1", password="pw1")
         self.assertEqual(client.user_id, "user1")
         self.assertEqual(client._password, "pw1")
-        self.assertTrue(client.base_url.endswith("/shipments"))
+        self.assertEqual(client.base_url, "https://api.brt.it/rest/v1")
 
     def test_init_missing_required_params_raises(self) -> None:
         with self.assertRaises(TypeError):
@@ -40,14 +40,7 @@ class TestBrtPZ(unittest.TestCase):
 
     def test_default_base_url(self) -> None:
         client = BrtPZ(user_id="user", password="pw")
-        self.assertEqual(client.base_url, "https://api.brt.it/rest/v1/shipments")
-
-    def test_custom_base_url_normalization(self) -> None:
-        client1 = BrtPZ(user_id="user", password="pw", base_url="https://api.brt.it/rest/v1")
-        self.assertEqual(client1.base_url, "https://api.brt.it/rest/v1/shipments")
-
-        client2 = BrtPZ(user_id="user", password="pw", base_url="https://api.brt.it/rest/v1/shipments/")
-        self.assertEqual(client2.base_url, "https://api.brt.it/rest/v1/shipments")
+        self.assertEqual(client.base_url, "https://api.brt.it/rest/v1")
 
     def test_headers_transport_layer(self) -> None:
         headers = self.client._headers
@@ -111,6 +104,7 @@ class TestBrtPZ(unittest.TestCase):
 
         # Verify sent payload
         call_kwargs = mock_request.call_args[1]
+        self.assertEqual(call_kwargs["url"], "https://api.brt.it/rest/v1/shipments/shipment")
         sent_json = call_kwargs["json"]
         self.assertEqual(sent_json["account"]["userID"], "test_user")
         self.assertEqual(sent_json["account"]["password"], "test_password")
@@ -192,7 +186,7 @@ class TestBrtPZ(unittest.TestCase):
         # Verify method and URL
         call_args = mock_request.call_args
         self.assertEqual(call_args[1]["method"], "PUT")
-        self.assertTrue(call_args[1]["url"].endswith("/delete"))
+        self.assertEqual(call_args[1]["url"], "https://api.brt.it/rest/v1/shipments/delete")
 
         sent_json = call_args[1]["json"]
         self.assertEqual(sent_json["account"]["userID"], "test_user")

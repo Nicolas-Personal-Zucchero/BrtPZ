@@ -13,7 +13,7 @@ from .schemas import (
 )
 
 class BrtPZ:
-    _PROD_BASE_URL: ClassVar[str]
+    _BASE_URL: ClassVar[str]
 
     def __init__(
         self,
@@ -21,7 +21,6 @@ class BrtPZ:
         password: str,
         customer_code: int | None = ...,
         departure_depot: int | None = ...,
-        base_url: str | None = ...,
         logger: logging.Logger | None = ...,
     ) -> None:
         """Initialize the BRT API Shipment client."""
