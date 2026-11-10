@@ -14,10 +14,8 @@
 - **Official BRT Shipment API Integration**:
   - `create_shipment`: Disk B shipment generation (`POST /rest/v1/shipments/shipment`), routing calculation, and optional parcel label printing (PDF/ZPL Base64).
   - `delete_shipment`: Shipment cancellation (`PUT /rest/v1/shipments/delete`) before management by the BRT departure depot.
-  - `confirm_shipment`: Explicit shipment confirmation (`PUT /rest/v1/shipments/shipment`) for accounts configured in explicit confirmation mode.
-  - `get_routing`: Routing calculations (`PUT /rest/v1/shipments/routing`) to retrieve departure/arrival terminals and delivery zone coordinates.
   - `get_label_bytes` & `save_label`: Label decoding and file export utilities for PDF, ZPL, and 2D digital QR codes.
-- **Dedicated JSON Schemas & Typings**: Full PEP 589 `TypedDict` definitions in [`brt_pz/schemas.py`](brt_pz/schemas.py) matching BRT Disk B specifications (`CreateData`, `LabelParameters`, `ActualSender`, `ReturnShipmentConsignee`, `Parcel`, `AdrData`, `DeleteData`, `ConfirmData`, `RoutingData`, `CreateResult`, `DeleteResult`, `ConfirmResult`, `RoutingResult`, `ExecutionMessage`, etc.).
+- **Dedicated JSON Schemas & Typings**: Full PEP 589 `TypedDict` definitions in [`brt_pz/schemas.py`](brt_pz/schemas.py) matching BRT Disk B specifications (`CreateData`, `LabelParameters`, `ActualSender`, `ReturnShipmentConsignee`, `Parcel`, `AdrData`, `DeleteData`, `CreateResult`, `DeleteResult`, `ExecutionMessage`, etc.).
 - **Automatic Account Injection**: Injects the BRT API `account` object (`userID`, `password`) into request bodies automatically.
 - **Default Depot & Customer Code Inheritance**: Configurable default `departureDepot` and `senderCustomerCode` auto-injected if omitted.
 - **Connection Pooling & Resiliency**: Built on `requests.Session` with HTTP Keep-Alive and exponential backoff retries on transient errors (`429`, `500`, `502`, `503`, `504`).
@@ -47,7 +45,6 @@ client = BrtPZ(
     password="your_password",
     customer_code=1020100,      # Default senderCustomerCode
     departure_depot=102,        # Default departureDepot
-    sandbox=True,               # Uses https://api-test.brt.it/rest/v1/shipments
 )
 ```
 

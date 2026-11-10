@@ -5,7 +5,7 @@ Based on official BRT Rest API Shipment documentation (v1).
 
 from __future__ import annotations
 
-from typing import TypedDict, list
+from typing import Any, List, Optional, TypedDict
 
 # =============================================================================
 # AUTHENTICATION

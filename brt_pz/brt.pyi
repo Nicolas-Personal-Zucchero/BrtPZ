@@ -4,20 +4,16 @@ from typing import Any, ClassVar, Self
 
 from .schemas import (
     ActualSender,
-    ConfirmResult,
     CreateData,
     CreateResult,
     DeleteResult,
     Label,
     LabelParameters,
     ReturnShipmentConsignee,
-    RoutingData,
-    RoutingResult,
 )
 
 class BrtPZ:
     _PROD_BASE_URL: ClassVar[str]
-    _TEST_BASE_URL: ClassVar[str]
 
     def __init__(
         self,
@@ -25,7 +21,6 @@ class BrtPZ:
         password: str,
         customer_code: int | None = ...,
         departure_depot: int | None = ...,
-        sandbox: bool = ...,
         base_url: str | None = ...,
         logger: logging.Logger | None = ...,
     ) -> None:
@@ -37,8 +32,6 @@ class BrtPZ:
     def customer_code(self) -> int | None: ...
     @property
     def departure_depot(self) -> int | None: ...
-    @property
-    def sandbox(self) -> bool: ...
     @property
     def base_url(self) -> str: ...
 
@@ -67,22 +60,6 @@ class BrtPZ:
         sender_customer_code: int | None = ...,
     ) -> DeleteResult | None:
         """Cancel an uncollected BRT shipment."""
-
-    def confirm_shipment(
-        self,
-        numeric_sender_reference: int,
-        alphanumeric_sender_reference: str = ...,
-        *,
-        cmr_code: str | None = ...,
-        sender_customer_code: int | None = ...,
-    ) -> ConfirmResult | None:
-        """Confirm an unconfirmed shipment (for explicit confirmation clients)."""
-
-    def get_routing(
-        self,
-        routing_data: RoutingData,
-    ) -> RoutingResult | None:
-        """Calculate BRT routing coordinates (terminal, depot, delivery zone)."""
 
     @staticmethod
     def get_label_bytes(label: Label | str, *, digital: bool = ...) -> bytes:

@@ -12,16 +12,13 @@ from urllib3.util import Retry
 from .schemas import (
     Account,
     ActualSender,
-    ConfirmData,
-    ConfirmResult,
     CreateData,
     CreateResult,
+    DeleteData,
     DeleteResult,
     Label,
     LabelParameters,
     ReturnShipmentConsignee,
-    RoutingData,
-    RoutingResult,
 )
 
 
@@ -36,7 +33,7 @@ class BrtPZ:
         password: str,
         customer_code: int | None = None,
         departure_depot: int | None = None,
-        sandbox: bool = False,
+        base_url: str | None = None,
         logger: logging.Logger | None = None,
     ) -> None:
         """Initialize the BRT API Shipment client.
@@ -45,7 +42,7 @@ class BrtPZ:
         :param password: BRT API Password.
         :param customer_code: Default sender customer code (codice cliente mittente).
         :param departure_depot: Default departure depot (filiale di partenza, 3 digits).
-        :param sandbox: If True, uses the BRT test environment endpoint.
+        :param base_url: Explicit base URL override (defaults to 'https://api.brt.it/rest/v1/shipments').
         :param logger: Optional logger instance for recording API warnings and errors.
         """
         if not user_id:
@@ -67,7 +64,14 @@ class BrtPZ:
         if departure_depot is not None and not isinstance(departure_depot, int):
             raise TypeError(f"'departure_depot' must be an int, got {type(departure_depot).__name__}.")
         self._departure_depot: int | None = departure_depot
-        self._sandbox: bool = sandbox
+
+        if base_url:
+            url = base_url.rstrip("/")
+            if not url.endswith("/shipments"):
+                url = f"{url}/shipments"
+            self._base_url = url
+        else:
+            self._base_url = self._PROD_BASE_URL
 
         self._logger: logging.Logger = logger if logger is not None else logging.getLogger("brt_pz")
         self._session: requests.Session = requests.Session()
@@ -90,14 +94,9 @@ class BrtPZ:
         return self._departure_depot
 
     @property
-    def sandbox(self) -> bool:
-        """Return True if sandbox / test environment is active."""
-        return self._sandbox
-
-    @property
     def base_url(self) -> str:
         """Return the active base URL."""
-        return self._PROD_BASE_URL
+        return self._base_url
 
     def _setup_session_retries(self) -> None:
         """Configure automatic retry behavior with exponential backoff for transient HTTP errors."""
@@ -364,139 +363,7 @@ class BrtPZ:
         return result
 
     # =========================================================================
-    # 3. SHIPMENT CONFIRMATION (PUT /shipment)
-    # =========================================================================
-
-    def confirm_shipment(
-        self,
-        numeric_sender_reference: int,
-        alphanumeric_sender_reference: str = "",
-        *,
-        cmr_code: str | None = None,
-        sender_customer_code: int | None = None,
-    ) -> ConfirmResult | None:
-        """Confirm a previously created unconfirmed shipment (PUT /rest/v1/shipments/shipment).
-
-        Note: Dedicated to clients working in 'Conferma Esplicita' mode (agreed upon
-        with BRT during service activation). If invoked by an 'AutoConferma' client,
-        BRT returns executionCode -101.
-
-        :param numeric_sender_reference: Numeric sender reference (riferimento numerico mittente).
-        :param alphanumeric_sender_reference: Alphanumeric sender reference (riferimento alfanumerico
-            mittente).
-        :param cmr_code: Optional CMR code for bolle aggregation / confirmation.
-        :param sender_customer_code: Sender customer code (defaults to client's configured `customer_code`).
-        :return: Parsed `confirmResult` dictionary containing `confirmResponse`, or None on error.
-        """
-        cust_code = sender_customer_code if sender_customer_code is not None else self._customer_code
-        if cust_code is None:
-            raise ValueError(
-                "senderCustomerCode is mandatory for shipment confirmation. "
-                "Set it on client initialization or pass 'sender_customer_code'."
-            )
-        if not isinstance(cust_code, int):
-            raise TypeError(f"'senderCustomerCode' must be an int, got {type(cust_code).__name__}.")
-
-        if numeric_sender_reference is None:
-            raise ValueError("numericSenderReference is mandatory for shipment confirmation.")
-        if not isinstance(numeric_sender_reference, int):
-            raise TypeError(
-                f"'numericSenderReference' must be an int, got {type(numeric_sender_reference).__name__}."
-            )
-        if not isinstance(alphanumeric_sender_reference, str):
-            raise TypeError(
-                f"'alphanumericSenderReference' must be a str, got {type(alphanumeric_sender_reference).__name__}."
-            )
-
-        confirm_payload_data: ConfirmData = {
-            "senderCustomerCode": cust_code,
-            "numericSenderReference": numeric_sender_reference,
-            "alphanumericSenderReference": alphanumeric_sender_reference,
-        }
-        if cmr_code:
-            confirm_payload_data["cmrCode"] = cmr_code
-
-        payload: dict[str, Any] = {
-            "account": self._build_account(),
-            "confirmData": confirm_payload_data,
-        }
-
-        endpoint = "/shipment"
-        response = self._request(
-            method="PUT",
-            endpoint=endpoint,
-            json=payload,
-            expected_status=(200, 201),
-            error_context="shipment confirmation",
-        )
-
-        if response is None:
-            return None
-
-        try:
-            result: dict[str, Any] = response.json()
-        except ValueError as e:
-            self._logger.error(f"Failed to parse JSON response during shipment confirmation: {e}")
-            return None
-
-        self._log_execution_message(result.get("confirmResponse", {}), "shipment confirmation")
-        return result
-
-    # =========================================================================
-    # 4. ROUTING INQUIRY (PUT /routing)
-    # =========================================================================
-
-    def get_routing(
-        self,
-        routing_data: RoutingData,
-    ) -> RoutingResult | None:
-        """Calculate BRT routing coordinates (PUT /rest/v1/shipments/routing).
-
-        Returns arrivalTerminal, arrivalDepot, and deliveryZone for Disk B formatting.
-        Useful for clients producing internal labels without using the Create API.
-
-        :param routing_data: Destination and shipment routing data (fields of `routingData`).
-        :return: Parsed `routingResult` dictionary containing `routingResponse`, or None on error.
-        """
-        payload: dict[str, Any] = {}
-
-        if "routingData" in routing_data:
-            data = dict(routing_data["routingData"])
-        else:
-            data = dict(routing_data)
-
-        if self._customer_code is not None and "senderCustomerCode" not in data:
-            data["senderCustomerCode"] = self._customer_code
-
-        if self._departure_depot is not None and "departureDepot" not in data:
-            data["departureDepot"] = self._departure_depot
-
-        payload["account"] = self._build_account()
-        payload["routingData"] = data
-
-        endpoint = "/routing"
-        response = self._request(
-            method="PUT",
-            endpoint=endpoint,
-            json=payload,
-            expected_status=(200, 201),
-            error_context="routing calculation",
-        )
-
-        if response is None:
-            return None
-
-        try:
-            result: dict[str, Any] = response.json()
-        except ValueError as e:
-            self._logger.error(f"Failed to parse JSON response during routing calculation: {e}")
-            return None
-
-        self._log_execution_message(result.get("routingResponse", {}), "routing calculation")
-        return result
-
-    # =========================================================================
-    # 5. LABEL UTILITIES
+    # 3. LABEL UTILITIES
     # =========================================================================
 
     @staticmethod

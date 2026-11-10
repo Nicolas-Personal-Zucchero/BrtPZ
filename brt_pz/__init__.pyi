@@ -3,10 +3,6 @@ from .schemas import (
     Account,
     ActualSender,
     AdrData,
-    ConfirmData,
-    ConfirmRequest,
-    ConfirmResponse,
-    ConfirmResult,
     CreateData,
     CreateRequest,
     CreateResponse,
@@ -21,10 +17,6 @@ from .schemas import (
     Labels,
     Parcel,
     ReturnShipmentConsignee,
-    RoutingData,
-    RoutingRequest,
-    RoutingResponse,
-    RoutingResult,
 )
 
 __all__ = [
@@ -32,10 +24,6 @@ __all__ = [
     "ActualSender",
     "AdrData",
     "BrtPZ",
-    "ConfirmData",
-    "ConfirmRequest",
-    "ConfirmResponse",
-    "ConfirmResult",
     "CreateData",
     "CreateRequest",
     "CreateResponse",
@@ -50,8 +38,4 @@ __all__ = [
     "Labels",
     "Parcel",
     "ReturnShipmentConsignee",
-    "RoutingData",
-    "RoutingRequest",
-    "RoutingResponse",
-    "RoutingResult",
 ]

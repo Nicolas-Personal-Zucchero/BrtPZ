@@ -11,7 +11,6 @@ class TestBrtPZ(unittest.TestCase):
             password="test_password",
             customer_code=1020100,
             departure_depot=102,
-            sandbox=True,
         )
 
     def tearDown(self) -> None:
@@ -39,12 +38,9 @@ class TestBrtPZ(unittest.TestCase):
         with self.assertRaises(TypeError):
             BrtPZ(user_id="user1", password="pw1", departure_depot="not_an_int")  # type: ignore[arg-type]
 
-    def test_base_url_sandbox(self) -> None:
-        prod_client = BrtPZ(user_id="user", password="pw", sandbox=False)
-        self.assertEqual(prod_client.base_url, "https://api.brt.it/rest/v1/shipments")
-
-        test_client = BrtPZ(user_id="user", password="pw", sandbox=True)
-        self.assertEqual(test_client.base_url, "https://api-test.brt.it/rest/v1/shipments")
+    def test_default_base_url(self) -> None:
+        client = BrtPZ(user_id="user", password="pw")
+        self.assertEqual(client.base_url, "https://api.brt.it/rest/v1/shipments")
 
     def test_custom_base_url_normalization(self) -> None:
         client1 = BrtPZ(user_id="user", password="pw", base_url="https://api.brt.it/rest/v1")
@@ -218,65 +214,6 @@ class TestBrtPZ(unittest.TestCase):
         client_no_code = BrtPZ(user_id="user", password="pw")
         with self.assertRaises(ValueError):
             client_no_code.delete_shipment(numeric_sender_reference=10)
-
-    @patch("requests.Session.request")
-    def test_confirm_shipment_success(self, mock_request: MagicMock) -> None:
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "confirmResponse": {
-                "currentTimeUTC": "2026-11-10T16:30:00+01:00",
-                "executionMessage": {"code": 0, "severity": "INFO", "codeDesc": "Confirmed"},
-            }
-        }
-        mock_request.return_value = mock_response
-
-        res = self.client.confirm_shipment(numeric_sender_reference=123, cmr_code="CMR1")
-        self.assertIsNotNone(res)
-        self.assertEqual(res["confirmResponse"]["executionMessage"]["code"], 0)
-
-        call_args = mock_request.call_args
-        self.assertEqual(call_args[1]["method"], "PUT")
-        self.assertTrue(call_args[1]["url"].endswith("/shipment"))
-        sent_json = call_args[1]["json"]
-        self.assertEqual(sent_json["confirmData"]["numericSenderReference"], 123)
-        self.assertEqual(sent_json["confirmData"]["cmrCode"], "CMR1")
-
-    @patch("requests.Session.request")
-    def test_get_routing_success(self, mock_request: MagicMock) -> None:
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "routingResponse": {
-                "currentTimeUTC": "2026-11-10T16:35:00+01:00",
-                "executionMessage": {"code": 0, "severity": "INFO", "codeDesc": "OK"},
-                "arrivalTerminal": "BO",
-                "arrivalDepot": "102",
-                "deliveryZone": "01",
-                "consigneeZIPCode": "40100",
-                "consigneeCity": "Bologna",
-                "consigneeProvinceAbbreviation": "BO",
-            }
-        }
-        mock_request.return_value = mock_response
-
-        res = self.client.get_routing(
-            {
-                "consigneeZIPCode": "40100",
-                "consigneeCountryAbbreviationISOAlpha2": "IT",
-                "numberOfParcels": 1,
-                "weightKG": 2.0,
-            }
-        )
-        self.assertIsNotNone(res)
-        self.assertEqual(res["routingResponse"]["arrivalTerminal"], "BO")
-
-        call_args = mock_request.call_args
-        self.assertEqual(call_args[1]["method"], "PUT")
-        self.assertTrue(call_args[1]["url"].endswith("/routing"))
-        sent_json = call_args[1]["json"]
-        self.assertEqual(sent_json["routingData"]["consigneeZIPCode"], "40100")
-        self.assertEqual(sent_json["routingData"]["departureDepot"], 102)
 
     def test_label_utilities(self) -> None:
         import base64
