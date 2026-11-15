@@ -706,3 +706,283 @@ class RoutingResult(TypedDict, total=False):
     """Top-level HTTP 200 response structure for routing calculation."""
 
     routingResponse: RoutingResponse
+
+
+# =============================================================================
+# TRACKING (GET /tracking/parcelID/{parcelID})
+# =============================================================================
+
+class Nota(TypedDict, total=False):
+    """Single tracking note."""
+
+    descrizione: str
+    """Note description (max length: 100)."""
+
+
+class Note(TypedDict, total=False):
+    """Wrapper object for tracking note in lista_note."""
+
+    nota: Nota
+    """Note entity."""
+
+
+class Evento(TypedDict, total=False):
+    """Single tracking status event."""
+
+    data: str
+    """Event date in DD.MM.YYYY format (max length: 10)."""
+
+    ora: str
+    """Event time in HH.MM format (max length: 5)."""
+
+    id: str
+    """Event status identifier code, e.g. '700', '701', '702', '703', '704', 'MIC' (max length: 3)."""
+
+    descrizione: str
+    """Event status description, e.g. 'CONSEGNATA', 'PARTITA', 'RITIRATA' (max length: 30)."""
+
+    filiale: str
+    """Depot name and code where the event occurred (max length: 30)."""
+
+
+class Eventi(TypedDict, total=False):
+    """Wrapper object for tracking event in lista_eventi."""
+
+    evento: Evento
+    """Event entity."""
+
+
+class Assicurazione(TypedDict, total=False):
+    """Insurance details for shipment in tracking."""
+
+    assicurazione_importo: float
+    """Insurance coverage amount."""
+
+    assicurazione_divisa: str
+    """Currency ISO code (max length: 3)."""
+
+
+class Contrassegno(TypedDict, total=False):
+    """Cash on delivery (contrassegno) details in tracking."""
+
+    contrassegno_importo: float
+    """COD payment amount."""
+
+    contrassegno_divisa: str
+    """Currency ISO code (max length: 3)."""
+
+    contrassegno_incasso: str
+    """Collection method (max length: 35)."""
+
+    contrassegno_particolarita: str
+    """Special payment terms (max length: 35)."""
+
+
+class Merce(TypedDict, total=False):
+    """Goods / parcel details in tracking."""
+
+    colli: int
+    """Number of packages / parcels."""
+
+    peso_kg: float
+    """Weight in kilograms."""
+
+    volume_m3: float
+    """Volume in cubic meters."""
+
+    natura_merce: str
+    """Description / nature of goods (max length: 15)."""
+
+
+class RecapitoDest(TypedDict, total=False):
+    """Consignee delivery address in tracking."""
+
+    ragione_sociale: str
+    """Consignee company / recipient name (max length: 35)."""
+
+    indirizzo: str
+    """Consignee street address (max length: 35)."""
+
+    cap: str
+    """Consignee postal code (max length: 9)."""
+
+    localita: str
+    """Consignee city / locality (max length: 35)."""
+
+    sigla_provincia: str
+    """Consignee province abbreviation (max length: 3)."""
+
+    sigla_nazione: str
+    """Consignee country abbreviation (max length: 3)."""
+
+    referente_consegna: str
+    """Contact person for delivery (max length: 35)."""
+
+    telefono_referente: str
+    """Contact person phone number (max length: 16)."""
+
+
+class RecapitoMitt(TypedDict, total=False):
+    """Sender address in tracking."""
+
+    codice: int
+    """Sender customer code."""
+
+    ragione_sociale: str
+    """Sender company / name (max length: 35)."""
+
+    indirizzo: str
+    """Sender street address (max length: 35)."""
+
+    cap: str
+    """Sender postal code (max length: 9)."""
+
+    localita: str
+    """Sender city / locality (max length: 35)."""
+
+    sigla_area: str
+    """Sender area abbreviation (max length: 3)."""
+
+
+class Riferimenti(TypedDict, total=False):
+    """Sender references in tracking."""
+
+    riferimento_mittente_numerico: int
+    """Numeric sender reference (int64)."""
+
+    riferimento_mittente_alfabetico: str
+    """Alphanumeric sender reference (max length: 15)."""
+
+    riferimento_partner_estero: str
+    """Foreign partner reference (max length: 20)."""
+
+
+class DatiConsegna(TypedDict, total=False):
+    """Delivery scheduling and appointment details in tracking."""
+
+    data_cons_richiesta: str
+    """Requested delivery date (max length: 10)."""
+
+    ora_cons_richiesta: str
+    """Requested delivery time (max length: 5)."""
+
+    tipo_cons_richiesta: str
+    """Requested delivery type code (max length: 1)."""
+
+    descrizione_cons_richiesta: str
+    """Requested delivery description (max length: 15)."""
+
+    data_teorica_consegna: str
+    """Estimated delivery date (max length: 10)."""
+
+    ora_teorica_consegna_da: str
+    """Estimated delivery time start (max length: 5)."""
+
+    ora_teorica_consegna_a: str
+    """Estimated delivery time end (max length: 5)."""
+
+    data_consegna_merce: str
+    """Actual delivery date (max length: 10)."""
+
+    ora_consegna_merce: str
+    """Actual delivery time (max length: 5)."""
+
+    firmatario_consegna: str
+    """Delivery recipient signature name (max length: 35)."""
+
+
+class DatiSpedizione(TypedDict, total=False):
+    """Shipment dispatch and transport details in tracking."""
+
+    spedizione_id: str
+    """BRT internal shipment identifier (max length: 12)."""
+
+    spedizione_data: str
+    """Shipment date DD.MM.YYYY (max length: 10)."""
+
+    tipo_porto: str
+    """Freight type code (max length: 1)."""
+
+    porto: str
+    """Freight type description, e.g. 'Destinatario' (max length: 15)."""
+
+    tipo_servizio: str
+    """Service type code (max length: 1)."""
+
+    servizio: str
+    """Service type description, e.g. 'EXPRESS' (max length: 15)."""
+
+    cod_filiale_arrivo: int
+    """Destination depot code (int32)."""
+
+    filiale_arrivo: str
+    """Destination depot name (max length: 20)."""
+
+    filiale_arrivo_URL: str
+    """URL to destination depot info page (max length: 256)."""
+
+    stato_sped_parte1: str
+    """Shipment status code part 1 (max length: 35)."""
+
+    stato_sped_parte2: str
+    """Shipment status code part 2 (max length: 35)."""
+
+    descrizione_stato_sped_parte1: str
+    """Shipment status description part 1 (max length: 150)."""
+
+    descrizione_stato_sped_parte2: str
+    """Shipment status description part 2 (max length: 150)."""
+
+
+class Spedizione(TypedDict, total=False):
+    """Consignment / waybill ('bolla') details in tracking."""
+
+    dati_spedizione: DatiSpedizione
+    dati_consegna: DatiConsegna
+    riferimenti: Riferimenti
+    mittente: RecapitoMitt
+    destinatario: RecapitoDest
+    merce: Merce
+    contrassegno: Contrassegno
+    assicurazione: Assicurazione
+
+
+class TtParcelIdResponse(TypedDict, total=False):
+    """Tracking parcel ID response payload."""
+
+    currentTimeUTC: str
+    """Response timestamp in UTC with timezone offset (max length: 32)."""
+
+    executionMessage: ExecutionMessage
+    """Execution status and diagnostics."""
+
+    esito: int
+    """Overall outcome status code (int32)."""
+
+    versione: int
+    """Response schema version (int32)."""
+
+    risposta_timestamp: str
+    """Timestamp of the response (max length: 26)."""
+
+    bolla: Spedizione
+    """Waybill consignment details."""
+
+    contatore_eventi: int
+    """Number of tracking events recorded (int32)."""
+
+    lista_eventi: list[Eventi]
+    """List of tracking status events (up to 50 items)."""
+
+    contatore_note: int
+    """Number of tracking notes recorded (int32)."""
+
+    lista_note: list[Note]
+    """List of tracking notes (up to 10 items)."""
+
+
+class ParcelIDResult(TypedDict, total=False):
+    """Top-level HTTP 200 response structure for tracking ParcelID GET."""
+
+    ttParcelIdResponse: TtParcelIdResponse
+

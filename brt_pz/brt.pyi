@@ -9,6 +9,7 @@ from .schemas import (
     DeleteResult,
     Label,
     LabelParameters,
+    ParcelIDResult,
     ReturnShipmentConsignee,
 )
 
@@ -59,6 +60,9 @@ class BrtPZ:
         sender_customer_code: int | None = ...,
     ) -> DeleteResult | None:
         """Cancel an uncollected BRT shipment."""
+
+    def get_tracking_by_parcel_id(self, parcel_id: str) -> ParcelIDResult | None:
+        """Retrieve tracking information for a shipment parcel."""
 
     @staticmethod
     def get_label_bytes(label: Label | str, *, digital: bool = ...) -> bytes:

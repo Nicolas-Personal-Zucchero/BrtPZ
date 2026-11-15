@@ -17,6 +17,7 @@ from .schemas import (
     DeleteResult,
     Label,
     LabelParameters,
+    ParcelIDResult,
     ReturnShipmentConsignee,
 )
 
@@ -137,6 +138,7 @@ class BrtPZ:
         *,
         params: dict[str, Any] | None = None,
         json: Any | None = None,
+        headers: dict[str, str] | None = None,
         expected_status: int | tuple[int, ...] = (200, 201),
         error_context: str = "an operation on BRT API",
     ) -> requests.Response | None:
@@ -144,11 +146,15 @@ class BrtPZ:
         url = endpoint if endpoint.startswith("http") else f"{self._BASE_URL}/{endpoint.lstrip('/')}"
         valid_statuses = (expected_status,) if isinstance(expected_status, int) else expected_status
 
+        req_headers = dict(self._headers)
+        if headers:
+            req_headers.update(headers)
+
         try:
             r = self._session.request(
                 method=method.upper(),
                 url=url,
-                headers=self._headers,
+                headers=req_headers,
                 params=params,
                 json=json,
             )
@@ -356,7 +362,55 @@ class BrtPZ:
         return result
 
     # =========================================================================
-    # 3. LABEL UTILITIES
+    # 3. TRACKING API (GET /tracking/parcelID/{parcelID})
+    # =========================================================================
+
+    def get_tracking_by_parcel_id(self, parcel_id: str) -> ParcelIDResult | None:
+        """Retrieve tracking information for a shipment parcel (GET /rest/v1/tracking/parcelID/{parcelID}).
+
+        Queries the BRT tracking service using the parcel identifier (segnacollo)
+        returned by `create_shipment`.
+
+        :param parcel_id: BRT parcel identifier (segnacollo, up to 35 characters).
+        :return: Parsed `ParcelIDResult` dictionary containing `ttParcelIdResponse`, or None on network/HTTP error.
+        """
+        if not parcel_id:
+            raise ValueError("'parcel_id' must be provided.")
+        if not isinstance(parcel_id, str):
+            raise TypeError(f"'parcel_id' must be a str, got {type(parcel_id).__name__}.")
+
+        cleaned_parcel_id = parcel_id.strip()
+        if not cleaned_parcel_id:
+            raise ValueError("'parcel_id' must not be empty.")
+
+        endpoint = f"/tracking/parcelID/{cleaned_parcel_id}"
+        tracking_headers = {
+            "userID": self._user_id,
+            "password": self._password,
+        }
+
+        response = self._request(
+            method="GET",
+            endpoint=endpoint,
+            headers=tracking_headers,
+            expected_status=(200, 201),
+            error_context="parcel tracking retrieval",
+        )
+
+        if response is None:
+            return None
+
+        try:
+            result: dict[str, Any] = response.json()
+        except ValueError as e:
+            self._logger.error(f"Failed to parse JSON response during tracking retrieval: {e}")
+            return None
+
+        self._log_execution_message(result.get("ttParcelIdResponse", {}), "tracking retrieval")
+        return result
+
+    # =========================================================================
+    # 4. LABEL UTILITIES
     # =========================================================================
 
     @staticmethod

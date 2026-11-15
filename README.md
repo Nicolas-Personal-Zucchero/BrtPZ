@@ -11,11 +11,12 @@
 
 ## Features
 
-- **Official BRT Shipment API Integration**:
+- **Official BRT Shipment & Tracking API Integration**:
   - `create_shipment`: Disk B shipment generation (`POST /rest/v1/shipments/shipment`), routing calculation, and optional parcel label printing (PDF/ZPL Base64).
   - `delete_shipment`: Shipment cancellation (`PUT /rest/v1/shipments/delete`) before management by the BRT departure depot.
-  - `get_label_bytes` & `save_label`: Label decoding and file export utilities for PDF, ZPL, and 2D digital QR codes.
-- **Dedicated JSON Schemas & Typings**: Full PEP 589 `TypedDict` definitions in [`brt_pz/schemas.py`](brt_pz/schemas.py) matching BRT Disk B specifications (`CreateData`, `LabelParameters`, `ActualSender`, `ReturnShipmentConsignee`, `Parcel`, `AdrData`, `DeleteData`, `CreateResult`, `DeleteResult`, `ExecutionMessage`, etc.).
+  - `get_tracking_by_parcel_id`: Parcel status tracking (`GET /rest/v1/tracking/parcelID/{parcelID}`) by parcel barcode ID (segnacollo).
+  - `get_label_bytes`, `get_label_text`, & `save_label`: Label decoding and file export utilities for PDF, ZPL, and 2D digital QR codes.
+- **Dedicated JSON Schemas & Typings**: Full PEP 589 `TypedDict` definitions in [`brt_pz/schemas.py`](brt_pz/schemas.py) matching BRT specifications (`CreateData`, `LabelParameters`, `ActualSender`, `ReturnShipmentConsignee`, `Parcel`, `AdrData`, `DeleteData`, `CreateResult`, `DeleteResult`, `ParcelIDResult`, `TtParcelIdResponse`, `Spedizione`, `ExecutionMessage`, etc.).
 - **Automatic Account Injection**: Injects the BRT API `account` object (`userID`, `password`) into request bodies automatically.
 - **Default Depot & Customer Code Inheritance**: Configurable default `departureDepot` and `senderCustomerCode` auto-injected if omitted.
 - **Connection Pooling & Resiliency**: Built on `requests.Session` with HTTP Keep-Alive and exponential backoff retries on transient errors (`429`, `500`, `502`, `503`, `504`).
@@ -98,6 +99,19 @@ if delete_result:
     print(f"Delete Code: {exec_msg['code']} ({exec_msg['codeDesc']})")
 ```
 
+### 4. Track a Parcel
+
+```python
+# Track parcel using the parcel ID (segnacollo)
+track_result = client.get_tracking_by_parcel_id("065102021014099")
+
+if track_result:
+    tt_resp = track_result["ttParcelIdResponse"]
+    bolla = tt_resp["bolla"]
+    print(f"Shipment ID: {bolla['dati_spedizione']['spedizione_id']}")
+    print(f"Status: {bolla['dati_spedizione']['descrizione_stato_sped_parte1']}")
+```
+
 ---
 
 ## Project Structure
@@ -107,12 +121,10 @@ BrtPZ/
 ├── brt_pz/
 │   ├── __init__.py         # Package exports (BrtPZ and schema types)
 │   ├── __init__.pyi        # Stub definitions for package exports
-│   ├── brt.py              # BrtPZ client implementation (Create & Delete)
+│   ├── brt.py              # BrtPZ client implementation (Create, Delete, Tracking)
 │   ├── brt.pyi             # Interface typing stubs & docstrings
 │   ├── schemas.py          # Dedicated BRT REST API JSON schemas and TypedDicts
 │   └── py.typed            # PEP 561 typing marker
-├── tests/
-│   └── test_brt.py         # Comprehensive unit tests
 ├── playground.py           # Interactive test runner with .env support
 ├── pyproject.toml          # Packaging metadata & setuptools config
 ├── template.env            # Environment configuration template

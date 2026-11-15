@@ -21,7 +21,14 @@ import time
 from pathlib import Path
 from typing import Any
 
-from brt_pz import BrtPZ, CreateData, CreateResult, DeleteResult, LabelParameters
+from brt_pz import (
+    BrtPZ,
+    CreateData,
+    CreateResult,
+    DeleteResult,
+    LabelParameters,
+    ParcelIDResult,
+)
 
 
 def load_env_file(filepath: str | Path = ".env") -> None:
@@ -228,6 +235,59 @@ def action_delete_shipment(
     return del_result
 
 
+# =============================================================================
+# ACTION 4: TRACK PARCEL
+# =============================================================================
+
+def action_track_parcel(
+    client: BrtPZ,
+    parcel_id: str,
+) -> ParcelIDResult | None:
+    """Action 4: Query tracking information for a parcel ID (GET /tracking/parcelID/{parcelID})."""
+    print("\n" + "=" * 60)
+    print(f"ACTION 4: TRACK PARCEL ({parcel_id})")
+    print("=" * 60)
+    print(f"[*] Sending get_tracking_by_parcel_id for parcelID='{parcel_id}'...")
+
+    track_result = client.get_tracking_by_parcel_id(parcel_id)
+    if not track_result:
+        print("[-] Failed to receive a tracking response from BRT API.")
+        return None
+
+    pretty_print("TRACKING RESPONSE", track_result)
+
+    tt_resp = track_result.get("ttParcelIdResponse", {})
+    exec_msg = tt_resp.get("executionMessage", {})
+    code = exec_msg.get("code")
+    print(f"\n[i] Tracking Execution Code: {code}")
+    print(f"[i] Tracking Execution Message: {exec_msg.get('codeDesc')} - {exec_msg.get('message')}")
+
+    bolla = tt_resp.get("bolla", {})
+    dati_sped = bolla.get("dati_spedizione", {})
+    if dati_sped:
+        print(f"[+] Shipment ID: {dati_sped.get('spedizione_id')}")
+        print(f"[+] Service: {dati_sped.get('servizio')} ({dati_sped.get('tipo_servizio')})")
+        print(f"[+] Arrival Depot: {dati_sped.get('filiale_arrivo')} (code {dati_sped.get('cod_filiale_arrivo')})")
+        stato_p1 = dati_sped.get("stato_sped_parte1") or dati_sped.get("descrizione_stato_sped_parte1")
+        stato_p2 = dati_sped.get("stato_sped_parte2") or dati_sped.get("descrizione_stato_sped_parte2")
+        if stato_p1 or stato_p2:
+            print(f"[+] Status: {stato_p1} / {stato_p2}")
+
+    events = tt_resp.get("lista_eventi", [])
+    if events:
+        active_events = [
+            e.get("evento", {})
+            for e in events
+            if isinstance(e, dict) and (e.get("evento", {}).get("id") or e.get("evento", {}).get("descrizione"))
+        ]
+        if active_events:
+            print(f"\n[+] Events ({len(active_events)} active):")
+            for ev in active_events:
+                print(f"    - {ev.get('data')} {ev.get('ora')} [{ev.get('id')}]: {ev.get('descrizione')} ({ev.get('filiale')})")
+
+    return track_result
+
+
 def main() -> None:
     client = get_client()
     if not client:
@@ -259,7 +319,24 @@ def main() -> None:
         )
 
     # -------------------------------------------------------------
-    # Action 3: Delete Shipment (shares client, numeric_ref, alphanumeric_ref)
+    # Action 3: Track Parcel
+    # -------------------------------------------------------------
+    # Extract parcelID (segnacollo) from create_result:
+    parcel_id: str | None = None
+    if create_result:
+        create_resp = create_result.get("createResponse", {})
+        labels = create_resp.get("labels", {}).get("label", [])
+        if labels and labels[0].get("trackingByParcelID"):
+            parcel_id = str(labels[0]["trackingByParcelID"])
+
+    if parcel_id:
+        action_track_parcel(
+            client=client,
+            parcel_id=parcel_id,
+        )
+
+    # -------------------------------------------------------------
+    # Action 4: Delete Shipment (shares client, numeric_ref, alphanumeric_ref)
     # -------------------------------------------------------------
     # Note: BRT documentation advises waiting ~5 minutes after creation
     # before requesting cancellation. Uncomment when ready to test:
