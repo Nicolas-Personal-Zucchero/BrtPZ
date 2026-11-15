@@ -1,7 +1,7 @@
 """Interactive manual testing playground for BrtPZ.
 
-Allows quick end-to-end testing of shipment creation, label generation,
-and cancellation with real credentials.
+Allows quick testing of shipment creation, label generation, and cancellation
+with real credentials, organized into 3 separate callable action functions.
 
 Usage:
 1. Ensure your '.env' contains your BRT credentials:
@@ -19,8 +19,9 @@ import logging
 import os
 import time
 from pathlib import Path
+from typing import Any
 
-from brt_pz import BrtPZ, CreateData, LabelParameters
+from brt_pz import BrtPZ, CreateData, CreateResult, DeleteResult, LabelParameters
 
 
 def load_env_file(filepath: str | Path = ".env") -> None:
@@ -46,7 +47,8 @@ def pretty_print(title: str, data: object) -> None:
     print(json.dumps(data, indent=2, default=str))
 
 
-def main() -> None:
+def get_client() -> BrtPZ | None:
+    """Initialize BrtPZ client from .env configuration."""
     load_env_file()
 
     user_id = os.getenv("BRT_USER_ID")
@@ -59,7 +61,7 @@ def main() -> None:
     if not user_id or user_id == "your_user_id_here" or not password:
         print("[!] BRT credentials not configured!")
         print("    Please copy 'template.env' to '.env' and set your real credentials.")
-        return
+        return None
 
     logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
     logger = logging.getLogger("playground")
@@ -76,17 +78,27 @@ def main() -> None:
         f"[+] Account: user_id={client.user_id}, "
         f"customer_code={client.customer_code}, depot={client.departure_depot}"
     )
+    return client
 
-    # Unique reference based on current epoch seconds (modulo 10^7)
-    sample_ref = int(time.time()) % 10000000
-    alpha_ref = f"TEST-{sample_ref}"
 
-    # =============================================================
-    # 1. CREATE SHIPMENT
-    # =============================================================
+# =============================================================================
+# ACTION 1: CREATE SHIPMENT
+# =============================================================================
+
+def action_create_shipment(
+    client: BrtPZ,
+    numeric_ref: int | None = None,
+    alphanumeric_ref: str | None = None,
+    output_type: str = "ZPL",
+) -> CreateResult | None:
+    """Action 1: Send create_shipment request to BRT."""
+    ref = numeric_ref if numeric_ref is not None else (int(time.time()) % 10000000)
+    alpha = alphanumeric_ref if alphanumeric_ref is not None else f"TEST-{ref}"
+
     print("\n" + "=" * 60)
-    print("STEP 1: CREATING SHIPMENT")
+    print("ACTION 1: CREATE SHIPMENT")
     print("=" * 60)
+    print(f"[*] Sending create_shipment (Reference: {ref} / {alpha}, Format: {output_type})...")
 
     shipment_payload: CreateData = {
         "departureDepot": client.departure_depot or 102,
@@ -103,14 +115,15 @@ def main() -> None:
         "consigneeEMail": "test@example.com",
         "consigneeMobilePhoneNumber": "3351234567",
         "isAlertRequired": "0",
+        "isCODMandatory": "0",
         "numberOfParcels": 1,
         "weightKG": 1.5,
-        "numericSenderReference": sample_ref,
-        "alphanumericSenderReference": alpha_ref,
+        "numericSenderReference": ref,
+        "alphanumericSenderReference": alpha,
     }
 
     label_params: LabelParameters = {
-        "outputType": "PDF",
+        "outputType": output_type,
         "offsetX": "0",
         "offsetY": "0",
         "isBorderRequired": "0",
@@ -118,7 +131,6 @@ def main() -> None:
         "isBarcodeControlRowRequired": "0",
     }
 
-    print(f"[*] Sending create_shipment request (Reference: {sample_ref} / {alpha_ref})...")
     create_result = client.create_shipment(
         shipment_payload,
         is_label_required="1",
@@ -127,7 +139,7 @@ def main() -> None:
 
     if not create_result:
         print("[-] Failed to receive a response from BRT API.")
-        return
+        return None
 
     pretty_print("CREATE SHIPMENT RESPONSE", create_result)
 
@@ -137,45 +149,125 @@ def main() -> None:
 
     print(f"\n[i] Execution Code: {code}")
     print(f"[i] Execution Message: {exec_msg.get('codeDesc')} - {exec_msg.get('message')}")
+    return create_result
 
-    # =============================================================
-    # 2. SAVE GENERATED LABEL (IF PRESENT)
-    # =============================================================
+
+# =============================================================================
+# ACTION 2: SAVE LABEL
+# =============================================================================
+
+def action_save_label(
+    client: BrtPZ,
+    create_result: CreateResult | dict[str, Any] | None,
+    numeric_ref: int | None = None,
+    ext: str = "zpl",
+) -> Path | None:
+    """Action 2: Extract, decode, and save the label from a create_shipment result."""
+    print("\n" + "=" * 60)
+    print(f"ACTION 2: SAVE LABEL ({ext.upper()})")
+    print("=" * 60)
+
+    if not create_result:
+        print("[-] No create_result provided.")
+        return None
+
+    create_resp = create_result.get("createResponse", {})
     labels_container = create_resp.get("labels", {})
     label_list = labels_container.get("label", [])
-    if label_list:
-        print("\n" + "=" * 60)
-        print("STEP 2: SAVING LABEL")
-        print("=" * 60)
-        first_label = label_list[0]
-        out_path = Path("labels") / f"label_{sample_ref}.pdf"
-        saved = client.save_label(first_label, out_path)
-        print(f"[+] Label saved successfully to: {saved.resolve()}")
-    else:
-        print("\n[!] No labels returned in response.")
 
-    # =============================================================
-    # 3. SHIPMENT DELETION (OPTIONAL)
-    # =============================================================
+    if not label_list:
+        print("[!] No labels returned in create_result.")
+        return None
+
+    first_label = label_list[0]
+    filename = f"label_{numeric_ref}.{ext.lower()}" if numeric_ref else f"label.{ext.lower()}"
+    out_path = Path("labels") / filename
+    saved = client.save_label(first_label, out_path)
+    print(f"[+] Label saved successfully to: {saved.resolve()}")
+
+    if ext.lower() == "zpl":
+        try:
+            zpl_text = client.get_label_text(first_label)
+            print("\n[i] ZPL Content Preview (first 10 lines):")
+            for line in zpl_text.strip().splitlines()[:10]:
+                print(f"    {line}")
+        except Exception as e:
+            print(f"[!] Could not decode ZPL text preview: {e}")
+
+    return saved
+
+
+# =============================================================================
+# ACTION 3: DELETE SHIPMENT
+# =============================================================================
+
+def action_delete_shipment(
+    client: BrtPZ,
+    numeric_ref: int,
+    alphanumeric_ref: str = "",
+) -> DeleteResult | None:
+    """Action 3: Send delete_shipment request to BRT."""
     print("\n" + "=" * 60)
-    print("STEP 3: DELETE SHIPMENT (OPTIONAL)")
+    print("ACTION 3: DELETE SHIPMENT")
     print("=" * 60)
-    print("Note: According to BRT documentation, cancellation should ideally")
-    print("be sent at least 5 minutes after creation and before depot takeover.")
+    print(f"[*] Sending delete_shipment for numericSenderReference={numeric_ref}...")
 
-    choice = input("\nDo you want to test delete_shipment now? [y/N]: ").strip().lower()
-    if choice in ("y", "yes"):
-        print(f"[*] Sending delete_shipment for numericSenderReference={sample_ref}...")
-        del_result = client.delete_shipment(
-            numeric_sender_reference=sample_ref,
-            alphanumeric_sender_reference=alpha_ref,
-        )
-        if del_result:
-            pretty_print("DELETE SHIPMENT RESPONSE", del_result)
-        else:
-            print("[-] Delete request failed.")
+    del_result = client.delete_shipment(
+        numeric_sender_reference=numeric_ref,
+        alphanumeric_sender_reference=alphanumeric_ref,
+    )
+
+    if del_result:
+        pretty_print("DELETE SHIPMENT RESPONSE", del_result)
+        exec_msg = del_result.get("deleteResponse", {}).get("executionMessage", {})
+        print(f"\n[i] Delete Execution Code: {exec_msg.get('code')}")
+        print(f"[i] Delete Execution Message: {exec_msg.get('codeDesc')} - {exec_msg.get('message')}")
     else:
-        print(f"[*] Skipping delete. Reference {sample_ref} remains created.")
+        print("[-] Delete request failed.")
+
+    return del_result
+
+
+def main() -> None:
+    client = get_client()
+    if not client:
+        return
+
+    # Generated or shared parameters
+    sample_ref = int(time.time()) % 10000000
+    alpha_ref = f"TEST-{sample_ref}"
+
+    # -------------------------------------------------------------
+    # Action 1: Create Shipment
+    # -------------------------------------------------------------
+    create_result = action_create_shipment(
+        client=client,
+        numeric_ref=sample_ref,
+        alphanumeric_ref=alpha_ref,
+        output_type="ZPL",
+    )
+
+    # -------------------------------------------------------------
+    # Action 2: Save Label (shares client, create_result, numeric_ref)
+    # -------------------------------------------------------------
+    if create_result:
+        action_save_label(
+            client=client,
+            create_result=create_result,
+            numeric_ref=sample_ref,
+            ext="zpl",
+        )
+
+    # -------------------------------------------------------------
+    # Action 3: Delete Shipment (shares client, numeric_ref, alphanumeric_ref)
+    # -------------------------------------------------------------
+    # Note: BRT documentation advises waiting ~5 minutes after creation
+    # before requesting cancellation. Uncomment when ready to test:
+    # action_delete_shipment(
+    #     client=client,
+    #     numeric_ref=sample_ref,
+    #     alphanumeric_ref=alpha_ref,
+    # )
 
 
 if __name__ == "__main__":

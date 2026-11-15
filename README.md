@@ -62,6 +62,8 @@ shipment_data: CreateData = {
     "consigneeContactName": "Mario Rossi",
     "consigneeTelephone": "051123456",
     "consigneeEMail": "mario.rossi@example.com",
+    "isAlertRequired": "0",
+    "isCODMandatory": "0",
     "numberOfParcels": 1,
     "weightKG": 2.5,
     "numericSenderReference": 99001,

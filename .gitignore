@@ -28,3 +28,8 @@ venv/
 # System temporary files
 .DS_Store
 Thumbs.db
+
+# Generated test labels
+labels/
+*.pdf
+*.zpl

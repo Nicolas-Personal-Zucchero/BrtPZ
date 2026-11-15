@@ -65,6 +65,15 @@ class BrtPZ:
         """Decode Base64 label stream to raw bytes."""
 
     @classmethod
+    def get_label_text(
+        cls,
+        label: Label | str,
+        encoding: str = ...,
+        errors: str = ...,
+    ) -> str:
+        """Decode Base64-encoded ZPL label stream to text string."""
+
+    @classmethod
     def save_label(
         cls,
         label: Label | str,

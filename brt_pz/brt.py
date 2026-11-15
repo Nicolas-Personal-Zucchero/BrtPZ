@@ -227,6 +227,10 @@ class BrtPZ:
         if self._departure_depot is not None and "departureDepot" not in create_data:
             create_data["departureDepot"] = self._departure_depot
 
+        # Inject default isCODMandatory if not provided (BRT requires '0' or '1')
+        if "isCODMandatory" not in create_data or not create_data["isCODMandatory"]:
+            create_data["isCODMandatory"] = "1" if create_data.get("cashOnDelivery") else "0"
+
         # Inject authentication account
         if "account" not in payload:
             payload["account"] = self._build_account()
@@ -370,6 +374,22 @@ class BrtPZ:
             stream_str = str(label)
 
         return base64.b64decode(stream_str)
+
+    @classmethod
+    def get_label_text(
+        cls,
+        label: Label | str,
+        encoding: str = "utf-8",
+        errors: str = "replace",
+    ) -> str:
+        """Decode a Base64-encoded ZPL label stream into a text string.
+
+        :param label: `Label` dictionary from `createResult`, or a raw Base64 string.
+        :param encoding: Text encoding (default: 'utf-8').
+        :param errors: Error handling scheme for decoding.
+        :return: Decoded ZPL command string.
+        """
+        return cls.get_label_bytes(label).decode(encoding, errors=errors)
 
     @classmethod
     def save_label(
